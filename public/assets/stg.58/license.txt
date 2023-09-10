@@ -1,0 +1,11 @@
+Model Information:
+* title:	StG.58
+* source:	https://sketchfab.com/3d-models/stg58-54fdb3f5ced44231b85a748266cae1d9
+* author:	Yksnawel (https://sketchfab.com/Yoba228)
+
+Model License:
+* license type:	CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)
+* requirements:	Author must be credited. No commercial use. Modified versions must have the same license.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "StG.58" (https://sketchfab.com/3d-models/stg58-54fdb3f5ced44231b85a748266cae1d9) by Yksnawel (https://sketchfab.com/Yoba228) licensed under CC-BY-NC-SA-4.0 (http://creativecommons.org/licenses/by-nc-sa/4.0/)

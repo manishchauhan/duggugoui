@@ -1,0 +1,13 @@
+.BoardStyle
+{
+    position: absolute;
+    margin-top: -98vh;
+    margin-left: 10px;
+    color: #000;
+    display: flex;
+    justify-content: center;
+    font-weight:500;
+    height: 50px;
+    display: flex;
+    flex-direction: column;
+}
