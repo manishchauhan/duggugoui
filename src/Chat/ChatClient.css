@@ -72,3 +72,11 @@ textarea {
 .send-button:hover {
   background-color: #0056b3;
 }
+.divClass
+{
+  display: flex;
+  position: absolute;
+  top: 20%;
+  left: 75%;
+
+}
