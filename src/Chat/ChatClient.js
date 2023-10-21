@@ -1,27 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect,useReducer  } from 'react';
 import EmojiPicker, { EmojiStyle, SuggestionMode } from 'emoji-picker-react'; // Update your import
 import '../App.css';
 import './ChatClient.css';
-import { fetchData, getCookie, useFetch } from '../Util/http';
-import { useNavigate } from 'react-router-dom';
+import { fetchData} from '../Util/http';
+import { json, useNavigate } from 'react-router-dom';
+import Rooms from '../Components/Rooms';
 
+
+// Define your initial state and reducer
 export default function ChatClient() {
-  const [msg, setMsg] = useState('');
+  const [msgObject, setMsgObject] = useState({ time: '', text: '', user: '' });
   const [msgPool, setMsgPool] = useState([]);
   const [socket, setSocket] = useState(null);
   const [internalError, setInternalError] = useState('');
-  const [userName, setUserName] = useState('');
+  const [username, setUserName] = useState('');
+  const [userid, setUserId] = useState();
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     async function validateLogin() {
       try {
+        // Assuming your fetchData function returns a JSON object with the username property
         const responseData = await fetchData('http://localhost:8080/user/home/chat');
         setUserName(responseData.User.username);
+        console.log(responseData.User.userid)
+        setUserId(responseData.User.userid);
       } catch (error) {
-        setInternalError('Something happened wrong ' + error.message);
+        setInternalError('Something went wrong ' + error.message);
       }
     }
+
     validateLogin();
 
     const newSocket = new WebSocket('ws://localhost:3001/ws');
@@ -32,8 +40,8 @@ export default function ChatClient() {
     });
 
     newSocket.addEventListener('message', (event) => {
-      const newMsg = JSON.parse(event.data);
-      setMsgPool((prevMsgPool) => [newMsg.text, ...prevMsgPool]);
+      const chatMsgObject = JSON.parse(event.data);
+      setMsgPool((prevMsgPool) => [chatMsgObject, ...prevMsgPool]);
     });
 
     setSocket(newSocket);
@@ -44,53 +52,72 @@ export default function ChatClient() {
   }, []);
 
   function addMessage() {
-    if (socket && msg) {
-      socket.send(`${userName}:= ${msg}`);
-      setMsg('');
+    if (socket && msgObject) {
+      const newMsgObject={...msgObject,user:username};
+      socket.send(JSON.stringify(newMsgObject)); // Sending the message as a JSON string
+      setMsgObject({ ...msgObject, text: '' }); // Clear the message text
     }
   }
 
   async function Logout() {
     try {
+      // Assuming your fetchData function handles API requests correctly
       const responseData = await fetchData('http://localhost:8080/user/logout');
       if (!responseData.status) {
         navigate('/');
       }
     } catch (error) {
-      setInternalError('Something happened wrong ' + error.message);
+      setInternalError('Something went wrong ' + error.message);
     }
   }
 
   function onEmojiSelect(emojiData, event) {
     // Combine the selected emoji with the existing message
-    setMsg((prevMsg) => prevMsg + emojiData.emoji);
+    setMsgObject((prevMsgObject) => {
+      return {
+        ...prevMsgObject,
+        text: prevMsgObject.text + emojiData.emoji,
+      };
+    });
   }
 
   return (
-    <div className="chat-container">
+    <div className='mainContainer'>
+      <Rooms userid={userid}></Rooms>
+      <div className="chat-container">
+      <button className="send-button" onClick={Logout}>
+        Video Call
+      </button>
+      <button className="send-button" onClick={Logout}>
+        Audio Call
+      </button>
       <button className="send-button" onClick={Logout}>
         Logout
       </button>
       <div className="room-name">Room Name: Computers</div>
       {internalError && <div>{internalError}</div>}
       <div className="chat-box">
-        {msgPool.map((msg, index) => (
-          <span key={index} className="chat-text">
-            {msg}
-          </span>
+        {msgPool.map((msgObject, index) => (
+          <div key={index} className="chat-message">
+            <span className="sender">{msgObject.user}</span>
+            <div className="message">{msgObject.text}</div>
+            <div className="timestamp">{msgObject.time}</div>
+          </div>
         ))}
       </div>
       <div className="message-input">
         <textarea
-          value={msg}
+          value={msgObject.text}
           rows="4"
           placeholder="Type your message..."
           onChange={(evt) => {
-            setMsg(evt.target.value);
+            setMsgObject({ ...msgObject, text: evt.target.value });
           }}
         />
         <div className="divClass">
-          <EmojiPicker  height={300} width={200}
+          <EmojiPicker
+            height={300}
+            width={200}
             onEmojiClick={onEmojiSelect}
             emojiStyle={EmojiStyle.NATIVE}
             suggestionMode={SuggestionMode.IMPERFECT}
@@ -101,5 +128,7 @@ export default function ChatClient() {
         </button>
       </div>
     </div>
+    </div>
+    
   );
 }
