@@ -1,0 +1,28 @@
+.room-style
+{
+    display: flex;
+    align-items: center;
+    flex-flow: column;
+}
+.room-item {
+    border: 1px solid #ccc; /* Add a border */
+    padding: 10px; /* Add padding to the div */
+    margin: 10px; /* Add margin to separate room items */
+    background-color: #f0f0f0; /* Set background color */
+    display: flex; /* Use flexbox layout for alignment */
+    align-items: center; /* Vertically center content */
+  }
+  
+  .room-item input[type="checkbox"] {
+    margin-right: 10px; /* Add some space between the checkbox and text */
+    width: 35px;
+  }
+  
+  .room-item:hover {
+    background-color: #e0e0e0; /* Change background color on hover */
+  }
+  .listHolder {
+    height: 300px;
+    overflow: auto; /* Add a vertical scrollbar if content overflows */
+    /* Add any other styling you want for .listHolder */
+  }

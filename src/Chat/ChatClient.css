@@ -33,12 +33,7 @@
   margin: 0 auto; /* Center the element horizontally */
 }
 
-/* Individual chat message */
-.chat-text {
-  display: block;
-  margin-bottom: 5px;
-  color: #333;
-}
+
 
 /* Message input area */
 .message-input {
@@ -71,4 +66,41 @@ textarea {
 
 .send-button:hover {
   background-color: #0056b3;
+}
+.divClass
+{
+  display: flex;
+  position: absolute;
+  top: 20%;
+  left: 75%;
+}
+/* Style for the chat message container */
+.chat-message {
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  padding: 10px;
+  margin: 10px;
+  max-width: 70%;
+  border-radius: 5px;
+}
+
+/* Style for the sender's name */
+.sender {
+  font-weight: bold;
+}
+
+/* Style for the message text */
+.message {
+  margin-top: 5px;
+}
+
+/* Style for the timestamp */
+.timestamp {
+  font-size: 9px;
+  color: #999;
+}
+.mainContainer
+{
+  display: flex;
+  margin-left: 10px;
 }

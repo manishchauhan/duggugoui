@@ -95,3 +95,20 @@ export const useHttpRequest = () => {
 
   return [loading, apiData, setApiData, success, setSuccess, error, setError, sendHttpRequest];
 };
+
+export function getCookie(cookieName) {
+  const cookies = document.cookie.split(";");
+
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split("=");
+
+    // Check if the cookie's name matches the provided cookieName
+    if (name === cookieName) {
+      // Decode and return the cookie value
+      return decodeURIComponent(value);
+    }
+  }
+
+  // If the cookie is not found, return null or handle the absence accordingly
+  return null;
+}

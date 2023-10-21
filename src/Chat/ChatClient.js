@@ -1,104 +1,134 @@
-import React, { useState, useEffect } from 'react';
-import EmojiPicker from 'emoji-picker-react';
+import React, { useState, useEffect,useReducer  } from 'react';
+import EmojiPicker, { EmojiStyle, SuggestionMode } from 'emoji-picker-react'; // Update your import
 import '../App.css';
 import './ChatClient.css';
 import { fetchData} from '../Util/http';
-import { useNavigate } from 'react-router-dom'; // Import useNavigate
+import { json, useNavigate } from 'react-router-dom';
+import Rooms from '../Components/Rooms';
+
+
+// Define your initial state and reducer
 export default function ChatClient() {
-  const [msg, setMsg] = useState('');
+  const [msgObject, setMsgObject] = useState({ time: '', text: '', user: '' });
   const [msgPool, setMsgPool] = useState([]);
   const [socket, setSocket] = useState(null);
   const [internalError, setInternalError] = useState('');
-  const [userName,setUserName]=useState(``);
-  const navigate = useNavigate(); // Initialize the navigate function
-  
-  useEffect(() => {
-    const newSocket = new WebSocket('ws://localhost:3001/ws'); // Adjust the URL as needed
-    async function validateLogin(newSocket)
-    {
-        try
-        {
-            const responseData=await fetchData(`http://localhost:8080/user/home/chat`);
-            if (newSocket && responseData.status)
-            {
-               setUserName(responseData.User.username)
-               const welcomeMsg=`Welcome to Chat:  ${responseData.User.username}`;
-               newSocket.send(welcomeMsg);
-            }
-        }catch(error)
-        {
-          setInternalError('Something happen wrong ' + error.message);
-        }
-    }
-   
-   
+  const [username, setUserName] = useState('');
+  const [userid, setUserId] = useState();
+  const navigate = useNavigate();
 
-    newSocket.addEventListener('open', () => {
-      console.log('Connected to server');
-    });
+  useEffect(() => {
+    async function validateLogin() {
+      try {
+        // Assuming your fetchData function returns a JSON object with the username property
+        const responseData = await fetchData('http://localhost:8080/user/home/chat');
+        setUserName(responseData.User.username);
+        console.log(responseData.User.userid)
+        setUserId(responseData.User.userid);
+      } catch (error) {
+        setInternalError('Something went wrong ' + error.message);
+      }
+    }
+
+    validateLogin();
+
+    const newSocket = new WebSocket('ws://localhost:3001/ws');
+    newSocket.addEventListener('open', () => {});
 
     newSocket.addEventListener('error', (error) => {
       console.log('Connection error:', error);
     });
 
     newSocket.addEventListener('message', (event) => {
-      const newMsg = JSON.parse(event.data);
-      setMsgPool((prevMsgPool) => [newMsg.text, ...prevMsgPool]);
+      const chatMsgObject = JSON.parse(event.data);
+      setMsgPool((prevMsgPool) => [chatMsgObject, ...prevMsgPool]);
     });
 
     setSocket(newSocket);
-    validateLogin(newSocket);
+
     return () => {
       newSocket.close();
     };
   }, []);
 
-
   function addMessage() {
-    if (socket && msg) {
-      socket.send(`${userName}:= ${msg}`);
-      setMsg('');
+    if (socket && msgObject) {
+      const newMsgObject={...msgObject,user:username};
+      socket.send(JSON.stringify(newMsgObject)); // Sending the message as a JSON string
+      setMsgObject({ ...msgObject, text: '' }); // Clear the message text
     }
   }
-  async function Logout()
-  {
-    try
-    {
-        const responseData=await fetchData(`http://localhost:8080/user/logout`);
-       if(!responseData.status)
-       {
-        navigate("/")
-       }
-    }catch(error)
-    {
-      setInternalError('Something happen wrong ' + error.message);
+
+  async function Logout() {
+    try {
+      // Assuming your fetchData function handles API requests correctly
+      const responseData = await fetchData('http://localhost:8080/user/logout');
+      if (!responseData.status) {
+        navigate('/');
+      }
+    } catch (error) {
+      setInternalError('Something went wrong ' + error.message);
     }
   }
+
+  function onEmojiSelect(emojiData, event) {
+    // Combine the selected emoji with the existing message
+    setMsgObject((prevMsgObject) => {
+      return {
+        ...prevMsgObject,
+        text: prevMsgObject.text + emojiData.emoji,
+      };
+    });
+  }
+
   return (
-    <div className='chat-container'>  
-      <button className="send-button" onClick={Logout}>Logout</button>
-      <div className='room-name'>Room Name: Computers</div>
+    <div className='mainContainer'>
+      <Rooms userid={userid}></Rooms>
+      <div className="chat-container">
+      <button className="send-button" onClick={Logout}>
+        Video Call
+      </button>
+      <button className="send-button" onClick={Logout}>
+        Audio Call
+      </button>
+      <button className="send-button" onClick={Logout}>
+        Logout
+      </button>
+      <div className="room-name">Room Name: Computers</div>
       {internalError && <div>{internalError}</div>}
-      <div className='chat-box'>
-        {msgPool.map((msg, index) => (
-          <span key={index} className='chat-text'>
-            {msg}
-          </span>
+      <div className="chat-box">
+        {msgPool.map((msgObject, index) => (
+          <div key={index} className="chat-message">
+            <span className="sender">{msgObject.user}</span>
+            <div className="message">{msgObject.text}</div>
+            <div className="timestamp">{msgObject.time}</div>
+          </div>
         ))}
       </div>
-      <div className='message-input'>
+      <div className="message-input">
         <textarea
-          value={msg}
-          rows='4'
-          placeholder='Type your message...'
+          value={msgObject.text}
+          rows="4"
+          placeholder="Type your message..."
           onChange={(evt) => {
-            setMsg(evt.target.value);
+            setMsgObject({ ...msgObject, text: evt.target.value });
           }}
         />
-        <button className='send-button' onClick={addMessage}>
+        <div className="divClass">
+          <EmojiPicker
+            height={300}
+            width={200}
+            onEmojiClick={onEmojiSelect}
+            emojiStyle={EmojiStyle.NATIVE}
+            suggestionMode={SuggestionMode.IMPERFECT}
+          />
+        </div>
+        <button className="send-button" onClick={addMessage}>
           Send Message
         </button>
       </div>
     </div>
+    </div>
+    
   );
 }
