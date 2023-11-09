@@ -4,12 +4,13 @@ import { fetchData } from '../Util/http';
 import './Room.css';
 import EditRoomPopup from '../Chat/EditRoomPopup';
 import ConfirmationModal from '../Shared/ConfirmationModal';
-export default function Rooms({ userid }) {
-  const [newRoom, setNewRoom] = useState(false);
-  const [editRoom, setEditRoom] = useState(false);
+export default function Rooms({ userid,onRoomSelect,onRoomDelete }) {
+  const [isRoomSelect, setisRoomSelect] = useState(false);
+  const [isRoomEdit, setisRoomEdit] = useState(false);
   const [internalError, setInternalError] = useState(null);
   const [roomList, setRoomList] = useState([]);
   const [selectedRooms, setSelectedRooms] = useState([]);
+  const [selectedRoomIndex,SetSelectedRoomIndex]=useState(0);
   const [searchText, setSearchText] = useState('');
   const [editRoomData,setEditRoomData] = useState({});
   const [hideConfirmation,setHideConfirmation] = useState(false)
@@ -18,6 +19,8 @@ export default function Rooms({ userid }) {
       const responseData = await fetchData('http://localhost:8080/chatrooms/list');
       setRoomList(responseData);
       setInternalError(null);
+      //select first room
+      onRoomSelect(responseData[0])
     } catch (error) {
       setInternalError('Something went wrong: ' + error.message);
     }
@@ -62,6 +65,12 @@ export default function Rooms({ userid }) {
     setRoomList(updatedRoomList);
     setSelectedRooms([]);
     setHideConfirmation(false);
+    //Remove the one selected room or multiple selected Room
+    if(onRoomDelete)
+    {
+      onRoomDelete(selectedRooms);
+    }
+    
   }
 
   const deleteRoom = (roomId) => {
@@ -94,7 +103,7 @@ export default function Rooms({ userid }) {
             e.target.checked? selectAllRooms(): setSelectedRooms([]);          
           }
           }/>
-        <button onClick={() => setNewRoom(true)}>Add</button>
+        <button onClick={() => setisRoomSelect(true)}>Add</button>
         <button onClick={handleDeleteSelectedRooms}>
           Delete All Selected Rooms
         </button>
@@ -106,8 +115,11 @@ export default function Rooms({ userid }) {
         {filterRooms.length === 0 ? (
           <div>No rooms found.</div>
         ) : (
-          filterRooms.map((room) => (
-            <div key={room.chatroom_id} className="room-item">
+          filterRooms.map((room,index) => (
+            <div key={room.chatroom_id} className={ selectedRoomIndex === index?"room-item_select":"room-item"} onClick={()=>{
+              onRoomSelect(room)
+              SetSelectedRoomIndex(index)
+            }}>
               <div>
                 
                 Room Name: <b>{room.chatroom_name}</b>
@@ -129,7 +141,7 @@ export default function Rooms({ userid }) {
                 <button onClick={()=>{
                   setEditRoomData({chatroom_name:room.chatroom_name,chatroom_details:room.chatroom_details,
                     chatroom_id:room.chatroom_id})
-                  setEditRoom(true)
+                  setisRoomEdit(true)
                 }}>
                   Edit Room
                 </button>
@@ -143,13 +155,13 @@ export default function Rooms({ userid }) {
       </div>
       <CreateRoomPopup
         userid={userid}
-        isOpen={newRoom}
-        onClose={() => setNewRoom(false)}
+        isOpen={isRoomSelect}
+        onClose={() => setisRoomSelect(false)}
         onSave={(newRoomData) => {
           getRoomData();
         }}
       ></CreateRoomPopup>
-      <EditRoomPopup  isOpen={editRoom} initialData={editRoomData} onClose={() => setEditRoom(false)} onSave={(updatedRoomData)=>{
+      <EditRoomPopup  isOpen={isRoomEdit} initialData={editRoomData} onClose={() => setisRoomEdit(false)} onSave={(updatedRoomData)=>{
         const updateRoomList=roomList.map((roomData)=>{
           return roomData.chatroom_id===updatedRoomData.chatroom_id?{...roomData,
             chatroom_name:updatedRoomData.chatroom_name,
@@ -158,7 +170,7 @@ export default function Rooms({ userid }) {
         })
         setRoomList(updateRoomList);
       }}></EditRoomPopup>
-      {hideConfirmation&&<ConfirmationModal onCancel={()=>{
+      {hideConfirmation&&<ConfirmationModal message='Are you sure you want to continue...' onCancel={()=>{
          setSelectedRooms([]);
         setHideConfirmation(false);
       }} onConfirm={()=>{
