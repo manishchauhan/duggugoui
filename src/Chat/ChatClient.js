@@ -31,6 +31,7 @@ export default function ChatClient() {
   const [hideUserList,setHideUserList] = useState(false);
   const [newUserList,setNewUserList] = useState([])
   const [ConnectionID,setConnectionID]=useState('');
+  const [newMsgObject, setNewMsgObject] = useState({ });
   const navigate = useNavigate();
 
   //initializeWebSocketConnection
@@ -103,7 +104,7 @@ export default function ChatClient() {
       {
          pushMessageToChatMap(chatMsgObject)
       }
-
+      setNewMsgObject(chatMsgObject);
       
     });
    
@@ -197,7 +198,7 @@ export default function ChatClient() {
         selectedRooms.forEach(room => {
           sendMessage(2,"",room)
         });
-      }}></Rooms>
+      }} __roomMessage={newMsgObject}></Rooms>
       }
       <div className="chat-container">
       <div style={{display:"flex"}}>

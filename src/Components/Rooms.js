@@ -4,7 +4,8 @@ import { fetchData } from '../Util/http';
 import './Room.css';
 import EditRoomPopup from '../Chat/EditRoomPopup';
 import ConfirmationModal from '../Shared/ConfirmationModal';
-export default function Rooms({ userid,onRoomSelect,onRoomDelete }) {
+import { json } from 'react-router-dom';
+export default function Rooms({ userid,onRoomSelect,onRoomDelete ,__roomMessage}) {
   const [isRoomSelect, setisRoomSelect] = useState(false);
   const [isRoomEdit, setisRoomEdit] = useState(false);
   const [internalError, setInternalError] = useState(null);
@@ -13,7 +14,8 @@ export default function Rooms({ userid,onRoomSelect,onRoomDelete }) {
   const [selectedRoomIndex,SetSelectedRoomIndex]=useState(0);
   const [searchText, setSearchText] = useState('');
   const [editRoomData,setEditRoomData] = useState({});
-  const [hideConfirmation,setHideConfirmation] = useState(false)
+  const [hideConfirmation,setHideConfirmation] = useState(false);
+  const [roomMessage,setRoomMessage]=useState(__roomMessage)
   async function getRoomData() {
     try {
       const responseData = await fetchData('http://localhost:8080/chatrooms/list');
@@ -121,9 +123,12 @@ export default function Rooms({ userid,onRoomSelect,onRoomDelete }) {
               SetSelectedRoomIndex(index)
             }}>
               <div>
-                
+            
                 Room Name: <b>{room.chatroom_name}</b>
               </div>
+              {
+                room.chatroom_id===__roomMessage.roomid&&<div style={{ background: 'green'}}>You got a Message from {__roomMessage.user}</div>
+              }
               {userid === room.created_by_user_id ? (
                   <>
                 <button
@@ -145,6 +150,7 @@ export default function Rooms({ userid,onRoomSelect,onRoomDelete }) {
                 }}>
                   Edit Room
                 </button>
+              
                 </>
               ) : (
                 <>Select Room</>

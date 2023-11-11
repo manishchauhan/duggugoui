@@ -1,0 +1,29 @@
+.messageBadge {
+    display: inline-block;
+    background-color: #3498db;
+    color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    opacity: 1;
+    transition: opacity 0.5s ease-in-out;
+  }
+  
+  .messageBadge.hidden {
+    opacity: 0;
+  }
+  
+  .badge-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .name {
+    font-size: 1.2em;
+    font-weight: bold;
+  }
+  
+  .message {
+    font-size: 1em;
+  }
+  
