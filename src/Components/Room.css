@@ -12,7 +12,14 @@
     display: flex; /* Use flexbox layout for alignment */
     align-items: center; /* Vertically center content */
   }
-  
+  .room-item_select {
+    border: 1px solid #ccc; /* Add a border */
+    padding: 10px; /* Add padding to the div */
+    margin: 10px; /* Add margin to separate room items */
+    background-color: #f7bc3e; /* Set background color */
+    display: flex; /* Use flexbox layout for alignment */
+    align-items: center; /* Vertically center content */
+  }
   .room-item input[type="checkbox"] {
     margin-right: 10px; /* Add some space between the checkbox and text */
     width: 35px;

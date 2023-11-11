@@ -1,39 +1,93 @@
-import React, { useState, useEffect,useReducer  } from 'react';
+import React, { useState, useEffect  } from 'react';
 import EmojiPicker, { EmojiStyle, SuggestionMode } from 'emoji-picker-react'; // Update your import
 import '../App.css';
 import './ChatClient.css';
 import { fetchData} from '../Util/http';
-import { json, useNavigate } from 'react-router-dom';
+
+import {  useNavigate } from 'react-router-dom';
 import Rooms from '../Components/Rooms';
+import UserList from './UserList';
+/*
+const (
+	Simple    EnumMessageType = iota // simple message
+	JoinRoom                         // welcome message when user joins a channel
+	LeaveRoom                        //  message when user leaves a channel
+	Request                          //   request to join a channel
+)
 
-
+*/
+let currentRoom;
+const roomMap= new Map();
+const isConnectionAlreadyExistsInMap=new Map();
 // Define your initial state and reducer
 export default function ChatClient() {
-  const [msgObject, setMsgObject] = useState({ time: '', text: '', user: '' });
+  const [msgObject, setMsgObject] = useState({ time: '', text: '', user: '',roomid: '',messagetype:0,connectionid:''});
   const [msgPool, setMsgPool] = useState([]);
   const [socket, setSocket] = useState(null);
   const [internalError, setInternalError] = useState('');
   const [username, setUserName] = useState('');
   const [userid, setUserId] = useState();
+  const [roomData,setRoomData] = useState({});
+  const [hideUserList,setHideUserList] = useState(false);
+  const [newUserList,setNewUserList] = useState([])
+  const [ConnectionID,setConnectionID]=useState('');
+  const [newMsgObject, setNewMsgObject] = useState({ });
   const navigate = useNavigate();
 
-  useEffect(() => {
-    async function validateLogin() {
-      try {
-        // Assuming your fetchData function returns a JSON object with the username property
-        const responseData = await fetchData('http://localhost:8080/user/home/chat');
-        setUserName(responseData.User.username);
-        console.log(responseData.User.userid)
-        setUserId(responseData.User.userid);
-      } catch (error) {
-        setInternalError('Something went wrong ' + error.message);
-      }
+  //initializeWebSocketConnection
+  async function getChatLobby() {
+    //1
+    try {
+      // Assuming your fetchData function returns a JSON object with the username property
+      const responseData = await fetchData('http://localhost:8080/user/home/chat');
+      setUserName(responseData.User.username);
+      console.log(responseData.User.userid)
+      setUserId(responseData.User.userid);
+    } catch (error) {
+      setInternalError('Something went wrong ' + error.message);
+    }
+   
+  }
+  function CleanOldData()
+  {
+    if(socket)
+    {
+      setMsgPool([]); //empty all messages
+      setMsgObject({text:''});//remove all message
     }
 
-    validateLogin();
+  }
+  function loadInitData(__roomData) {
+    CleanOldData();
+    const chatroomid=__roomData.chatroom_id;
 
+    if(roomMap.has(chatroomid) && roomMap.get(chatroomid).length > 0) {
+        const oldMessage = roomMap.get(chatroomid);
+       setMsgPool([...oldMessage]);
+    }
+
+
+  }
+  function updateUserList(chatMsgObject) {
+    const userObject = { name: chatMsgObject.user, status: "online" };
+  
+    setNewUserList((oldUserList) => {
+
+      const uniqueUserSet = new Set([...oldUserList, userObject].map(user => user.name));
+      const sortedUniqueUsers = Array.from(uniqueUserSet).sort();
+      const updatedUserList = sortedUniqueUsers.map(name => ({ name, status: "online" }));
+  
+      return updatedUserList;
+    });
+  }
+  
+ 
+  useEffect(() => {
+    getChatLobby();
     const newSocket = new WebSocket('ws://localhost:3001/ws');
-    newSocket.addEventListener('open', () => {});
+    newSocket.addEventListener('open', (event) => {
+    //  console.log(event)
+    });
 
     newSocket.addEventListener('error', (error) => {
       console.log('Connection error:', error);
@@ -41,21 +95,60 @@ export default function ChatClient() {
 
     newSocket.addEventListener('message', (event) => {
       const chatMsgObject = JSON.parse(event.data);
-      setMsgPool((prevMsgPool) => [chatMsgObject, ...prevMsgPool]);
+      if(chatMsgObject.roomid===currentRoom.chatroom_id)
+      {
+        pushMessageToChatMap(chatMsgObject)
+        setMsgPool((prevMsgPool) => [chatMsgObject, ...prevMsgPool]);
+        updateUserList(chatMsgObject)
+      }else
+      {
+         pushMessageToChatMap(chatMsgObject)
+      }
+      setNewMsgObject(chatMsgObject);
+      
     });
-
+   
     setSocket(newSocket);
-
+    
     return () => {
-      newSocket.close();
+      if(newSocket)
+      {
+        newSocket.close();
+      }
+  
     };
   }, []);
+  function pushMessageToChatMap(newMsgObject)
+  {
+      const roomId=newMsgObject.roomid;
 
-  function addMessage() {
-    if (socket && msgObject) {
-      const newMsgObject={...msgObject,user:username};
+      if(roomMap.has(roomId))
+      {
+        roomMap.get(roomId).unshift(newMsgObject)
+      }else
+      {
+
+        roomMap.set(roomId,[])
+        roomMap.get(roomId).unshift(newMsgObject)
+      }
+  }
+  function sendMessage(__messagetype=0,welcomeMsg=null,__roomData=null) {
+    if (socket ) {
+      let newMsgObject;
+      if(welcomeMsg && __roomData)
+      {
+        newMsgObject={...welcomeMsg,connectionid:ConnectionID,user:username,roomid:__roomData.chatroom_id,messagetype:__messagetype};
+      }else
+      {
+        newMsgObject={...msgObject,connectionid:ConnectionID,user:username,roomid:roomData.chatroom_id,messagetype:__messagetype};
+      }
       socket.send(JSON.stringify(newMsgObject)); // Sending the message as a JSON string
       setMsgObject({ ...msgObject, text: '' }); // Clear the message text
+      if(__roomData)
+      {
+        isConnectionAlreadyExistsInMap.set(__roomData.chatroom_id,"YES")//
+      }
+
     }
   }
 
@@ -80,11 +173,35 @@ export default function ChatClient() {
       };
     });
   }
-
+  function showUserList()
+  {
+    setHideUserList(true);
+  }
+  function dataAvailable()
+  {
+    return  username&&socket&&roomData
+  }
   return (
     <div className='mainContainer'>
-      <Rooms userid={userid}></Rooms>
+      {
+       dataAvailable() &&<Rooms userid={userid} onRoomSelect={(__roomData)=>{
+        currentRoom=__roomData;
+        setRoomData(__roomData);
+        loadInitData(__roomData);
+        if( !isConnectionAlreadyExistsInMap.has(__roomData.chatroom_id))
+        {
+          const welcomeMsg={text:  `${username} Joined the Room` }
+          sendMessage(1,welcomeMsg,__roomData)
+        }
+      
+      }} onRoomDelete={(selectedRooms)=>{
+        selectedRooms.forEach(room => {
+          sendMessage(2,"",room)
+        });
+      }} __roomMessage={newMsgObject}></Rooms>
+      }
       <div className="chat-container">
+      <div style={{display:"flex"}}>
       <button className="send-button" onClick={Logout}>
         Video Call
       </button>
@@ -94,7 +211,14 @@ export default function ChatClient() {
       <button className="send-button" onClick={Logout}>
         Logout
       </button>
-      <div className="room-name">Room Name: Computers</div>
+      <div>
+      <button className="send-button" onClick={showUserList}>
+      Show User List
+      </button>
+    
+      </div>
+      </div>
+      <div className="room-name">(User Name: {username}) Room Name: {roomData.chatroom_name}</div>
       {internalError && <div>{internalError}</div>}
       <div className="chat-box">
         {msgPool.map((msgObject, index) => (
@@ -123,11 +247,16 @@ export default function ChatClient() {
             suggestionMode={SuggestionMode.IMPERFECT}
           />
         </div>
-        <button className="send-button" onClick={addMessage}>
+        <button className="send-button" onClick={()=>{
+          sendMessage();
+        }}>
           Send Message
         </button>
       </div>
     </div>
+    {hideUserList&&<UserList data={newUserList} onClose={(status)=>{
+          setHideUserList(status)
+        }}></UserList>}
     </div>
     
   );
