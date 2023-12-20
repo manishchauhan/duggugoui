@@ -3,22 +3,33 @@ import EmojiPicker, { EmojiStyle, SuggestionMode } from 'emoji-picker-react'; //
 import '../App.css';
 import './ChatClient.css';
 import { fetchData} from '../Util/http';
-
+import Peer from 'simple-peer';
 import {  useNavigate } from 'react-router-dom';
 import Rooms from '../Components/Rooms';
 import UserList from './UserList';
+import ConfirmationModal from '../Shared/ConfirmationModal';
+import { VideoRoom} from '../Components/VideoRoom'
 /*
 const (
-	Simple    EnumMessageType = iota // simple message
-	JoinRoom                         // welcome message when user joins a channel
-	LeaveRoom                        //  message when user leaves a channel
-	Request                          //   request to join a channel
+	TextMessage EnumMessageType = iota // simple message
+	JoinRoom                           // welcome message when user joins a channel
+	LeaveRoom                          //  message when user leaves a channel
+	Request                            //   request to join a channel
+	videoRequest
 )
 
 */
+const EnumMessageType={
+  TextMessage:0,
+  JoinRoom:1,
+  LeaveRoom:2,
+  Request:3,
+  videoRequest:4
+}
 let currentRoom;
 const roomMap= new Map();
 const isConnectionAlreadyExistsInMap=new Map();
+const peersConnectionMap = new Map();
 // Define your initial state and reducer
 export default function ChatClient() {
   const [msgObject, setMsgObject] = useState({ time: '', text: '', user: '',roomid: '',messagetype:0,connectionid:''});
@@ -32,6 +43,9 @@ export default function ChatClient() {
   const [newUserList,setNewUserList] = useState([])
   const [ConnectionID,setConnectionID]=useState('');
   const [newMsgObject, setNewMsgObject] = useState({ });
+  const [showVideoCmp,setShowVideoCmp] = useState(false);
+
+
   const navigate = useNavigate();
 
   //initializeWebSocketConnection
@@ -80,7 +94,10 @@ export default function ChatClient() {
       return updatedUserList;
     });
   }
-  
+  function handleUserJoined(chatMsgObject)
+  {
+    console.log(chatMsgObject)
+  }
  
   useEffect(() => {
     getChatLobby();
@@ -95,6 +112,13 @@ export default function ChatClient() {
 
     newSocket.addEventListener('message', (event) => {
       const chatMsgObject = JSON.parse(event.data);
+        
+      //start a video call no need to send a request
+      if(chatMsgObject.messagetype===EnumMessageType.videoRequest)
+      { 
+          handleUserJoined(chatMsgObject);
+         return;
+      }
       if(chatMsgObject.roomid===currentRoom.chatroom_id)
       {
         pushMessageToChatMap(chatMsgObject)
@@ -132,7 +156,7 @@ export default function ChatClient() {
         roomMap.get(roomId).unshift(newMsgObject)
       }
   }
-  function sendMessage(__messagetype=0,welcomeMsg=null,__roomData=null) {
+  function sendMessage(__messagetype=EnumMessageType.TextMessage,welcomeMsg=null,__roomData=null) {
     if (socket ) {
       let newMsgObject;
       if(welcomeMsg && __roomData)
@@ -173,8 +197,15 @@ export default function ChatClient() {
       };
     });
   }
+  function StartVideoCall()
+  {
+    //start signal
+    sendMessage(EnumMessageType.videoRequest,"signal",roomData)
+    setShowVideoCmp(true)
+  }
   function showUserList()
   {
+    
     setHideUserList(true);
   }
   function dataAvailable()
@@ -191,18 +222,18 @@ export default function ChatClient() {
         if( !isConnectionAlreadyExistsInMap.has(__roomData.chatroom_id))
         {
           const welcomeMsg={text:  `${username} Joined the Room` }
-          sendMessage(1,welcomeMsg,__roomData)
+          sendMessage(EnumMessageType.JoinRoom,welcomeMsg,__roomData)
         }
       
       }} onRoomDelete={(selectedRooms)=>{
         selectedRooms.forEach(room => {
-          sendMessage(2,"",room)
+          sendMessage(EnumMessageType.LeaveRoom,"",room)
         });
       }} __roomMessage={newMsgObject}></Rooms>
       }
       <div className="chat-container">
       <div style={{display:"flex"}}>
-      <button className="send-button" onClick={Logout}>
+      <button className="send-button" onClick={(StartVideoCall)}>
         Video Call
       </button>
       <button className="send-button" onClick={Logout}>
@@ -257,6 +288,15 @@ export default function ChatClient() {
     {hideUserList&&<UserList data={newUserList} onClose={(status)=>{
           setHideUserList(status)
         }}></UserList>}
+      {
+        showVideoCmp&&<ConfirmationModal onCancel={()=>{
+          setShowVideoCmp(false)
+       }} onConfirm={()=>{
+        setShowVideoCmp(false)
+       }} >
+          <VideoRoom></VideoRoom>
+        </ConfirmationModal>
+      }
     </div>
     
   );

@@ -11,7 +11,7 @@ import { userGameData } from './scoreBoard'
 const Game = ({ callBack }) => {
 
   // Create a raycaster
-  let gameLevel = 2;
+  let gameLevel = 1;
   let heartMaterial;
   const bulletArray = [];
   const mouse = new THREE.Vector2();

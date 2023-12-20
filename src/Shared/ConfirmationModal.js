@@ -18,7 +18,7 @@ const ConfirmationModal = ({ message, onConfirm, onCancel, children }) => {
 };
 
 ConfirmationModal.propTypes = {
-  message: PropTypes.string.isRequired,
+  message: PropTypes.string,
   onConfirm: PropTypes.func.isRequired,
   onCancel: PropTypes.func.isRequired,
   children: PropTypes.node,
