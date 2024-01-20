@@ -1,0 +1,16 @@
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(2fr, 2fr);
+    grid-gap: 10px; /* Adjust the gap between grid items as needed */
+    margin: 20px;
+    height: 80vh;
+    overflow-y: auto; /* Add vertical scroll if content overflows */
+  }
+  
+  .grid-item {
+    border: 1px solid #ccc;
+    padding: 20px;
+    min-width: 175px;
+    min-height: 175px;
+    text-align: center;
+  }

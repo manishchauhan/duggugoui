@@ -8,23 +8,33 @@ import {  useNavigate } from 'react-router-dom';
 import Rooms from '../Components/Rooms';
 import UserList from './UserList';
 import ConfirmationModal from '../Shared/ConfirmationModal';
-import { VideoRoom} from '../Components/VideoRoom'
+import { GroupChatWindow} from '../Components/GroupChatWindow'
 /*
 const (
 	TextMessage EnumMessageType = iota // simple message
 	JoinRoom                           // welcome message when user joins a channel
 	LeaveRoom                          //  message when user leaves a channel
 	Request                            //   request to join a channel
-	videoRequest
+	Sdpoffer
 )
-
+TextMessage roomModel.EnumMessageType = iota // simple message
+	JoinRoom                                     // welcome message when user joins a channel
+	LeaveRoom                                    //  message when user leaves a channel
+	Request                                      //   request to join a channel
+	VideoCall
+	Candidate // Sdpoffer
+	Offer     //Offer
+	Answer    //Answer
 */
 const EnumMessageType={
   TextMessage:0,
   JoinRoom:1,
   LeaveRoom:2,
   Request:3,
-  videoRequest:4
+  VideoCall:4,
+  Candidate:5, //send sdp offer to backend
+  Offer:6,
+  Answer:7
 }
 let currentRoom;
 const roomMap= new Map();
@@ -32,7 +42,7 @@ const isConnectionAlreadyExistsInMap=new Map();
 const peersConnectionMap = new Map();
 // Define your initial state and reducer
 export default function ChatClient() {
-  const [msgObject, setMsgObject] = useState({ time: '', text: '', user: '',roomid: '',messagetype:0,connectionid:''});
+  const [msgObject, setMsgObject] = useState({});
   const [msgPool, setMsgPool] = useState([]);
   const [socket, setSocket] = useState(null);
   const [internalError, setInternalError] = useState('');
@@ -44,8 +54,9 @@ export default function ChatClient() {
   const [ConnectionID,setConnectionID]=useState('');
   const [newMsgObject, setNewMsgObject] = useState({ });
   const [showVideoCmp,setShowVideoCmp] = useState(false);
-
-
+  //Offer Candidate
+  const [Offer,setOffer] = useState(null);
+  const [Candidate,setCandidate] = useState(null);
   const navigate = useNavigate();
 
   //initializeWebSocketConnection
@@ -67,7 +78,7 @@ export default function ChatClient() {
     if(socket)
     {
       setMsgPool([]); //empty all messages
-      setMsgObject({text:''});//remove all message
+      setMsgObject({content:''});//remove all message
     }
 
   }
@@ -111,15 +122,30 @@ export default function ChatClient() {
     });
 
     newSocket.addEventListener('message', (event) => {
-      const chatMsgObject = JSON.parse(event.data);
-        
-      //start a video call no need to send a request
-      if(chatMsgObject.messagetype===EnumMessageType.videoRequest)
-      { 
-          handleUserJoined(chatMsgObject);
-         return;
+      const webSocketMessage = JSON.parse(event?.data);
+      if(!webSocketMessage.data)
+      {
+        return;
       }
-      if(chatMsgObject.roomid===currentRoom.chatroom_id)
+      const chatMsgObject=JSON.parse(webSocketMessage.data)
+     
+      chatMsgObject.messagetype=webSocketMessage?.messagetype;
+      chatMsgObject.roomid=webSocketMessage?.roomid;
+      chatMsgObject.user=webSocketMessage?.user;
+      chatMsgObject.time=webSocketMessage?.time;
+      if(webSocketMessage.messagetype===EnumMessageType.Offer)
+      {
+        //do offer Offer stuff
+        setOffer(chatMsgObject);
+        return;
+      }
+      if(webSocketMessage.messagetype===EnumMessageType.Candidate)
+      {
+        //do offer Candidate stuff
+        setCandidate(chatMsgObject)
+        return;
+      }
+      if(webSocketMessage.roomid===currentRoom.chatroom_id)
       {
         pushMessageToChatMap(chatMsgObject)
         setMsgPool((prevMsgPool) => [chatMsgObject, ...prevMsgPool]);
@@ -129,6 +155,7 @@ export default function ChatClient() {
          pushMessageToChatMap(chatMsgObject)
       }
       setNewMsgObject(chatMsgObject);
+      
       
     });
    
@@ -159,15 +186,20 @@ export default function ChatClient() {
   function sendMessage(__messagetype=EnumMessageType.TextMessage,welcomeMsg=null,__roomData=null) {
     if (socket ) {
       let newMsgObject;
+      let roomid;
       if(welcomeMsg && __roomData)
       {
-        newMsgObject={...welcomeMsg,connectionid:ConnectionID,user:username,roomid:__roomData.chatroom_id,messagetype:__messagetype};
+
+        roomid=__roomData.chatroom_id;
+        newMsgObject={...welcomeMsg,connectionid:ConnectionID};
       }else
       {
-        newMsgObject={...msgObject,connectionid:ConnectionID,user:username,roomid:roomData.chatroom_id,messagetype:__messagetype};
+        roomid=roomData.chatroom_id;
+        newMsgObject={...msgObject,connectionid:ConnectionID};
       }
-      socket.send(JSON.stringify(newMsgObject)); // Sending the message as a JSON string
-      setMsgObject({ ...msgObject, text: '' }); // Clear the message text
+      const WebsocketMessage={messagetype:__messagetype,user:username,roomid:roomid,data:JSON.stringify(newMsgObject)}
+      socket.send(JSON.stringify(WebsocketMessage)); // Sending the message as a JSON string
+      setMsgObject({ ...msgObject, content: '' }); // Clear the message text
       if(__roomData)
       {
         isConnectionAlreadyExistsInMap.set(__roomData.chatroom_id,"YES")//
@@ -193,14 +225,14 @@ export default function ChatClient() {
     setMsgObject((prevMsgObject) => {
       return {
         ...prevMsgObject,
-        text: prevMsgObject.text + emojiData.emoji,
+        content: prevMsgObject.content + emojiData.emoji,
       };
     });
   }
   function StartVideoCall()
   {
     //start signal
-    sendMessage(EnumMessageType.videoRequest,"signal",roomData)
+    //sendMessage(EnumMessageType.Sdpoffer,"signal",roomData)
     setShowVideoCmp(true)
   }
   function showUserList()
@@ -221,7 +253,7 @@ export default function ChatClient() {
         loadInitData(__roomData);
         if( !isConnectionAlreadyExistsInMap.has(__roomData.chatroom_id))
         {
-          const welcomeMsg={text:  `${username} Joined the Room` }
+          const welcomeMsg={content:  `${username} Joined the Room` }
           sendMessage(EnumMessageType.JoinRoom,welcomeMsg,__roomData)
         }
       
@@ -255,18 +287,18 @@ export default function ChatClient() {
         {msgPool.map((msgObject, index) => (
           <div key={index} className="chat-message">
             <span className="sender">{msgObject.user}</span>
-            <div className="message">{msgObject.text}</div>
+            <div className="message">{msgObject.content}</div>
             <div className="timestamp">{msgObject.time}</div>
           </div>
         ))}
       </div>
       <div className="message-input">
         <textarea
-          value={msgObject.text}
+          value={msgObject.content}
           rows="4"
           placeholder="Type your message..."
           onChange={(evt) => {
-            setMsgObject({ ...msgObject, text: evt.target.value });
+            setMsgObject({ ...msgObject, content: evt.target.value });
           }}
         />
         <div className="divClass">
@@ -294,7 +326,16 @@ export default function ChatClient() {
        }} onConfirm={()=>{
         setShowVideoCmp(false)
        }} >
-          <VideoRoom></VideoRoom>
+          <GroupChatWindow Offer={Offer} Candidate={Candidate} onVideoCallReady={()=>{
+            const WebsocketMessage={messagetype:EnumMessageType.VideoCall,user:username,roomid:roomData.chatroom_id}
+            socket.send(JSON.stringify(WebsocketMessage));
+          }} onicecandidate={(candidate)=>{
+            const WebsocketMessage={data:JSON.stringify(candidate),messagetype:EnumMessageType.VideoCall,user:username,roomid:roomData.chatroom_id}
+            socket.send(JSON.stringify(WebsocketMessage));
+        }}  sendAnswer={(answer)=>{
+            const WebsocketMessage={data:JSON.stringify(answer),messagetype:EnumMessageType.VideoCall,user:username,roomid:roomData.chatroom_id}
+            socket.send(JSON.stringify(WebsocketMessage));
+        }}></GroupChatWindow>
         </ConfirmationModal>
       }
     </div>
