@@ -3,12 +3,12 @@ import EmojiPicker, { EmojiStyle, SuggestionMode } from 'emoji-picker-react'; //
 import '../App.css';
 import './ChatClient.css';
 import { fetchData} from '../Util/http';
-import Peer from 'simple-peer';
+
 import {  useNavigate } from 'react-router-dom';
 import Rooms from '../Components/Rooms';
 import UserList from './UserList';
 import ConfirmationModal from '../Shared/ConfirmationModal';
-import { GroupChatWindow} from '../Components/GroupChatWindow'
+import  GroupChatWindow from '../Components/GroupChatWindow'
 /*
 const (
 	TextMessage EnumMessageType = iota // simple message
@@ -34,12 +34,14 @@ const EnumMessageType={
   VideoCall:4,
   Candidate:5, //send sdp offer to backend
   Offer:6,
-  Answer:7
+            Answer:7
 }
+let ConnectionID="";
+
 let currentRoom;
 const roomMap= new Map();
 const isConnectionAlreadyExistsInMap=new Map();
-const peersConnectionMap = new Map();
+
 // Define your initial state and reducer
 export default function ChatClient() {
   const [msgObject, setMsgObject] = useState({});
@@ -51,13 +53,14 @@ export default function ChatClient() {
   const [roomData,setRoomData] = useState({});
   const [hideUserList,setHideUserList] = useState(false);
   const [newUserList,setNewUserList] = useState([])
-  const [ConnectionID,setConnectionID]=useState('');
+ // const [ConnectionID,setConnectionID]=useState('');
   const [newMsgObject, setNewMsgObject] = useState({ });
   const [showVideoCmp,setShowVideoCmp] = useState(false);
   //Offer Candidate
   const [Offer,setOffer] = useState(null);
   const [Candidate,setCandidate] = useState(null);
   const navigate = useNavigate();
+  const [webRTCPeerID,setWebRTCPeerID]=useState()
 
   //initializeWebSocketConnection
   async function getChatLobby() {
@@ -66,7 +69,6 @@ export default function ChatClient() {
       // Assuming your fetchData function returns a JSON object with the username property
       const responseData = await fetchData('http://localhost:8080/user/home/chat');
       setUserName(responseData.User.username);
-      console.log(responseData.User.userid)
       setUserId(responseData.User.userid);
     } catch (error) {
       setInternalError('Something went wrong ' + error.message);
@@ -105,10 +107,7 @@ export default function ChatClient() {
       return updatedUserList;
     });
   }
-  function handleUserJoined(chatMsgObject)
-  {
-    console.log(chatMsgObject)
-  }
+  
  
   useEffect(() => {
     getChatLobby();
@@ -123,6 +122,37 @@ export default function ChatClient() {
 
     newSocket.addEventListener('message', (event) => {
       const webSocketMessage = JSON.parse(event?.data);
+     
+      if(webSocketMessage.connectionid)
+      {
+        ConnectionID=webSocketMessage.connectionid;
+      }
+     
+      
+  
+      if(webSocketMessage.messagetype===EnumMessageType.Offer)
+      {
+        //do offer Offer stuff
+          if(webSocketMessage.rtcpeerid)
+        {
+
+          setWebRTCPeerID(webSocketMessage.rtcpeerid)
+        }
+       
+        setOffer(webSocketMessage);
+        return;
+      }
+      if(webSocketMessage.messagetype===EnumMessageType.Candidate)
+      {
+        //do offer Candidate stuff
+        if(webSocketMessage.rtcpeerid)
+        {
+          setWebRTCPeerID(webSocketMessage.rtcpeerid)
+        }
+        
+        setCandidate(webSocketMessage)
+        return;
+      }
       if(!webSocketMessage.data)
       {
         return;
@@ -133,18 +163,7 @@ export default function ChatClient() {
       chatMsgObject.roomid=webSocketMessage?.roomid;
       chatMsgObject.user=webSocketMessage?.user;
       chatMsgObject.time=webSocketMessage?.time;
-      if(webSocketMessage.messagetype===EnumMessageType.Offer)
-      {
-        //do offer Offer stuff
-        setOffer(chatMsgObject);
-        return;
-      }
-      if(webSocketMessage.messagetype===EnumMessageType.Candidate)
-      {
-        //do offer Candidate stuff
-        setCandidate(chatMsgObject)
-        return;
-      }
+     
       if(webSocketMessage.roomid===currentRoom.chatroom_id)
       {
         pushMessageToChatMap(chatMsgObject)
@@ -158,7 +177,9 @@ export default function ChatClient() {
       
       
     });
-   
+    newSocket.onerror = function(evt) {
+      console.log("ERROR: " + evt.data)
+    }
     setSocket(newSocket);
     
     return () => {
@@ -191,13 +212,13 @@ export default function ChatClient() {
       {
 
         roomid=__roomData.chatroom_id;
-        newMsgObject={...welcomeMsg,connectionid:ConnectionID};
+        newMsgObject={...welcomeMsg};
       }else
       {
         roomid=roomData.chatroom_id;
-        newMsgObject={...msgObject,connectionid:ConnectionID};
+        newMsgObject={...msgObject};
       }
-      const WebsocketMessage={messagetype:__messagetype,user:username,roomid:roomid,data:JSON.stringify(newMsgObject)}
+      const WebsocketMessage={messagetype:__messagetype,user:username,roomid:roomid,connectionid:ConnectionID,data:JSON.stringify(newMsgObject)}
       socket.send(JSON.stringify(WebsocketMessage)); // Sending the message as a JSON string
       setMsgObject({ ...msgObject, content: '' }); // Clear the message text
       if(__roomData)
@@ -326,15 +347,20 @@ export default function ChatClient() {
        }} onConfirm={()=>{
         setShowVideoCmp(false)
        }} >
-          <GroupChatWindow Offer={Offer} Candidate={Candidate} onVideoCallReady={()=>{
-            const WebsocketMessage={messagetype:EnumMessageType.VideoCall,user:username,roomid:roomData.chatroom_id}
+      
+          <GroupChatWindow RTCPeerID={webRTCPeerID} Offer={Offer} Candidate={Candidate} onVideoCallReady={()=>{
+            const WebsocketMessage={connectionid:ConnectionID,messagetype:EnumMessageType.VideoCall,user:username,roomid:roomData.chatroom_id}
             socket.send(JSON.stringify(WebsocketMessage));
-          }} onicecandidate={(candidate)=>{
-            const WebsocketMessage={data:JSON.stringify(candidate),messagetype:EnumMessageType.VideoCall,user:username,roomid:roomData.chatroom_id}
-            socket.send(JSON.stringify(WebsocketMessage));
-        }}  sendAnswer={(answer)=>{
-            const WebsocketMessage={data:JSON.stringify(answer),messagetype:EnumMessageType.VideoCall,user:username,roomid:roomData.chatroom_id}
-            socket.send(JSON.stringify(WebsocketMessage));
+          }} onicecandidate={(candidate,RTCPeerID)=>{
+            
+            const WebsocketMessage={rtcpeerid:RTCPeerID,connectionid:ConnectionID,data:JSON.stringify(candidate,RTCPeerID),messagetype:EnumMessageType.Candidate,user:username,roomid:roomData.chatroom_id}
+             
+           socket.send(JSON.stringify(WebsocketMessage));
+        }}  sendAnswer={(answer,RTCPeerID)=>{
+          
+            const WebsocketMessage={rtcpeerid:RTCPeerID,connectionid:ConnectionID,data:JSON.stringify(answer),messagetype:EnumMessageType.Answer,user:username,roomid:roomData.chatroom_id}
+          
+           socket.send(JSON.stringify(WebsocketMessage));
         }}></GroupChatWindow>
         </ConfirmationModal>
       }

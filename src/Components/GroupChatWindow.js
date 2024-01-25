@@ -1,14 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './GroupChatWindow.css';
 
-export const GroupChatWindow = ({Offer,Candidate,onVideoCallReady=null,onicecandidate=null,sendAnswer=null}) => {
+const GroupChatWindow = ({ RTCPeerID, Offer, Candidate, onVideoCallReady = null, onicecandidate = null, sendAnswer = null }) => {
   const [localStream, setLocalStream] = useState(null);
   const [WebRtcPeerConnection, setWebRtcPeerConnection] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
+  const [VideoStreams, setVideoStreams] = useState([]);
+  const [AudioStreams, setAudioStreams] = useState([]);
   const videoRef = useRef(null);
+  const [webRTCPeerID, setWebRTCPeerID] = useState(RTCPeerID);
 
-  //Sender Video add Stream in localStream variable which 
+  useEffect(() => {
+    setWebRTCPeerID(RTCPeerID);
+  }, [RTCPeerID]);
+
+  useEffect(() => {
+    const init = async () => {
+      await getLocalStream();
+      if (onVideoCallReady) {
+        onVideoCallReady();
+      }
+    };
+
+    init();
+  }, []);
+
+  useEffect(() => {
+    videoRef.current = document.getElementById('localVideo');
+
+    if (localStream && videoRef.current) {
+      videoRef.current.srcObject = localStream;
+      const peerConnection = addPeerConnection();
+      setWebRtcPeerConnection(peerConnection);
+
+      videoRef.current.addEventListener('loadedmetadata', () => {
+        videoRef.current.play().catch((error) => console.error('Error playing video:', error));
+      });
+    }
+  }, [localStream]);
+
   const getLocalStream = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -18,89 +49,55 @@ export const GroupChatWindow = ({Offer,Candidate,onVideoCallReady=null,onicecand
     }
   };
 
-  useEffect(() => {
-    const init = async () => {
-      await getLocalStream();
-      if(onVideoCallReady)
-      {
-        onVideoCallReady();
-      }
-    };
-    //create a PeerConnection
+  const addPeerConnection = () => {
+    const peerConnection = new RTCPeerConnection();
 
-    init();
-  }, []);
-  function addPeerConnection() {
-    // Create an RTCPeerConnection with iceServers
-    const peerConnectionConfig = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
-    };
-
-    const peerConnection = new RTCPeerConnection(peerConnectionConfig);
-
-    // Add local stream tracks to the peer connection
     localStream.getTracks().forEach((track) => {
       peerConnection.addTrack(track, localStream);
     });
 
-    // Set up event handler for incoming tracks
     peerConnection.ontrack = (event) => {
-      
-      // Do something with the remote stream, e.g., display it in a video element
+      // Update the state with the new stream
+      if (event.track.kind !== `audio`) {
+        setVideoStreams((prevStreams) => [...prevStreams, event.streams[0]]);
+      }else
+      {
+        setAudioStreams((prevStreams) => [...prevStreams, event.streams[0]]);
+      }
+     
     };
 
-    // Set up event handler for ICE candidates
     peerConnection.onicecandidate = (event) => {
       if (!event.candidate) {
-        return
+        return;
       }
-      onicecandidate(event.candidate)
+      onicecandidate(event.candidate, webRTCPeerID);
     };
 
-    setWebRtcPeerConnection(peerConnection)
-    
-  }
-  useEffect(()=>{
-    if(Candidate!==null) {
-      let candidate = JSON.parse(Candidate.data)
-      if (!candidate) {
-        return console.log('failed to parse candidate')
-      }
-      WebRtcPeerConnection.addIceCandidate(candidate)
-    }
-  },[Candidate])
-  //Offer
-  useEffect(()=>{
-    if(Offer!==null) {
-      let offer = JSON.parse(Offer.data)
-      if (!offer) {
-        return console.log('failed to parse answer')
-      }
-      WebRtcPeerConnection.setRemoteDescription(offer)
-      WebRtcPeerConnection.createAnswer().then(answer => {
-        WebRtcPeerConnection.setLocalDescription(answer)
-        sendAnswer(answer)
-      })
-    }
-  },[Offer])
-  useEffect(() => {
-    // Set videoRef using the callback function
-    videoRef.current = document.getElementById('localVideo');
+    return peerConnection;
+  };
 
-    // Ensure localStream and videoRef.current are available
-    if (localStream && videoRef.current) {
-      videoRef.current.srcObject = localStream;
-      addPeerConnection()
-      // Wait for the video to be loaded
-      videoRef.current.addEventListener('loadedmetadata', () => {
-        // Autoplay the video without sound
-        videoRef.current.play().catch((error) => console.error('Error playing video:', error));
-      });
+  useEffect(() => {
+    if (Candidate && WebRtcPeerConnection && webRTCPeerID) {
+      let candidate = JSON.parse(Candidate?.data);
+      if (candidate) {
+        WebRtcPeerConnection.addIceCandidate(candidate);
+      }
     }
-  }, [localStream]);
+  }, [Candidate, WebRtcPeerConnection, webRTCPeerID]);
+
+  useEffect(() => {
+    if (Offer && WebRtcPeerConnection && webRTCPeerID) {
+      let offer = JSON.parse(Offer?.data);
+      if (offer) {
+        WebRtcPeerConnection.setRemoteDescription(offer);
+        WebRtcPeerConnection.createAnswer().then((answer) => {
+          WebRtcPeerConnection.setLocalDescription(answer);
+          sendAnswer(answer, webRTCPeerID);
+        });
+      }
+    }
+  }, [Offer, WebRtcPeerConnection, webRTCPeerID]);
 
   const handleToggleMute = () => {
     if (videoRef.current) {
@@ -117,15 +114,20 @@ export const GroupChatWindow = ({Offer,Candidate,onVideoCallReady=null,onicecand
   };
 
   return (
-    <div className='grid-container '>
+    <div className='grid-container'>
     <div className="grid-item">
       <div>User Name</div>
-      <video id="localVideo" autoPlay />
+      <video id="localVideo" width="100%" height="80%" autoPlay controls />
       <button onClick={handleToggleMute}>{isMuted ? 'Unmute' : 'Mute'}</button>
       <button onClick={handleToggleHide}>{isHidden ? 'Show' : 'Hide'}</button>
     </div>
-    </div>
+    {VideoStreams.map((stream, index) => (
+      <div key={index} className="grid-item">
+        <video width="100%" height="75%" id={`remoteVideo-${index}`} autoPlay ref={(ref) => ref && (ref.srcObject = stream)} controls />
+      </div>
+    ))}
+  </div>
   );
 };
 
-
+export default GroupChatWindow;
