@@ -34,7 +34,8 @@ const EnumMessageType={
   VideoCall:4,
   Candidate:5, //send sdp offer to backend
   Offer:6,
-            Answer:7
+  Answer:7,
+  DeleteChannel:8 // delete a channel webrtc
 }
 let ConnectionID="";
 
@@ -122,7 +123,13 @@ export default function ChatClient() {
 
     newSocket.addEventListener('message', (event) => {
       const webSocketMessage = JSON.parse(event?.data);
-     
+      console.log("webSocketMessage",webSocketMessage)
+      if(webSocketMessage.messagetype===EnumMessageType.DeleteChannel)
+      {
+        setShowVideoCmp(false)
+        return;
+      }
+      
       if(webSocketMessage.connectionid)
       {
         ConnectionID=webSocketMessage.connectionid;
@@ -343,9 +350,12 @@ export default function ChatClient() {
         }}></UserList>}
       {
         showVideoCmp&&<ConfirmationModal onCancel={()=>{
+      
           setShowVideoCmp(false)
        }} onConfirm={()=>{
-        setShowVideoCmp(false)
+        const WebsocketMessage={connectionid:ConnectionID,messagetype:EnumMessageType.DeleteChannel,user:username,roomid:roomData.chatroom_id}
+        socket.send(JSON.stringify(WebsocketMessage));
+        
        }} >
       
           <GroupChatWindow RTCPeerID={webRTCPeerID} Offer={Offer} Candidate={Candidate} onVideoCallReady={()=>{
