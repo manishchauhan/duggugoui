@@ -26,6 +26,10 @@ const GroupChatWindow = ({ RTCPeerID, Offer, Candidate, onVideoCallReady = null,
     init();
   }, []);
 
+
+
+
+
   useEffect(() => {
     videoRef.current = document.getElementById('localVideo');
 
@@ -64,7 +68,17 @@ const GroupChatWindow = ({ RTCPeerID, Offer, Candidate, onVideoCallReady = null,
       {
         setAudioStreams((prevStreams) => [...prevStreams, event.streams[0]]);
       }
-     
+    };
+
+    // Set onremovetrack event directly on the MediaStream object
+    localStream.onremovetrack = ({ track }) => {
+      // Remove the corresponding element from the DOM
+      console.log('Track removed:', track);
+      const index = VideoStreams.findIndex((stream) => stream.getTracks().includes(track));
+      const el = document.getElementById(`remoteVideo-${index}`);
+      if (el && el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
     };
 
     peerConnection.onicecandidate = (event) => {
@@ -79,25 +93,39 @@ const GroupChatWindow = ({ RTCPeerID, Offer, Candidate, onVideoCallReady = null,
 
   useEffect(() => {
     if (Candidate && WebRtcPeerConnection && webRTCPeerID) {
+      if (!WebRtcPeerConnection.remoteDescription) {
+
+        return;
+      }
       let candidate = JSON.parse(Candidate?.data);
+    
       if (candidate) {
         WebRtcPeerConnection.addIceCandidate(candidate);
       }
     }
   }, [Candidate, WebRtcPeerConnection, webRTCPeerID]);
 
-  useEffect(() => {
+ 
+
+useEffect(() => {
+  const handleOffer = async () => {
     if (Offer && WebRtcPeerConnection && webRTCPeerID) {
-      let offer = JSON.parse(Offer?.data);
-      if (offer) {
-        WebRtcPeerConnection.setRemoteDescription(offer);
-        WebRtcPeerConnection.createAnswer().then((answer) => {
-          WebRtcPeerConnection.setLocalDescription(answer);
+      try {
+        const offer = JSON.parse(Offer.data);
+        if (offer) {
+          await WebRtcPeerConnection.setRemoteDescription(offer);
+          const answer = await WebRtcPeerConnection.createAnswer();
+          await WebRtcPeerConnection.setLocalDescription(answer);
           sendAnswer(answer, webRTCPeerID);
-        });
+        }
+      } catch (error) {
+        console.error('Error handling offer:', error);
       }
     }
-  }, [Offer, WebRtcPeerConnection, webRTCPeerID]);
+  };
+
+  handleOffer();
+}, [Offer, WebRtcPeerConnection, webRTCPeerID]);
 
   const handleToggleMute = () => {
     if (videoRef.current) {
