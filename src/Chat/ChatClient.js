@@ -364,12 +364,12 @@ export default function ChatClient() {
           }} onicecandidate={(candidate,RTCPeerID)=>{
             
             const WebsocketMessage={rtcpeerid:RTCPeerID,connectionid:ConnectionID,data:JSON.stringify(candidate,RTCPeerID),messagetype:EnumMessageType.Candidate,user:username,roomid:roomData.chatroom_id}
-             
+            
            socket.send(JSON.stringify(WebsocketMessage));
         }}  sendAnswer={(answer,RTCPeerID)=>{
           
             const WebsocketMessage={rtcpeerid:RTCPeerID,connectionid:ConnectionID,data:JSON.stringify(answer),messagetype:EnumMessageType.Answer,user:username,roomid:roomData.chatroom_id}
-          
+           
            socket.send(JSON.stringify(WebsocketMessage));
         }}></GroupChatWindow>
         </ConfirmationModal>
