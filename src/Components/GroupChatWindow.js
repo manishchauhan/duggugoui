@@ -61,26 +61,16 @@ const GroupChatWindow = ({ RTCPeerID, Offer, Candidate, onVideoCallReady = null,
     });
 
     peerConnection.ontrack = (event) => {
-      // Update the state with the new stream
-      if (event.track.kind !== `audio`) {
-        setVideoStreams((prevStreams) => [...prevStreams, event.streams[0]]);
-      }else
-      {
-        setAudioStreams((prevStreams) => [...prevStreams, event.streams[0]]);
-      }
+       // Update the state with the new stream
+        if (event.track.kind !== `audio`) {
+          setVideoStreams((prevStreams) => [...prevStreams, event.streams[0]]);
+        }
+       // Set onremovetrack event directly on the MediaStream object
+       event.streams[0].onremovetrack = (event) => {
+        const streamToRemove = event.target;
+        setVideoStreams(prevStreams => prevStreams.filter(stream => stream !== streamToRemove));
+      };
     };
-
-    // Set onremovetrack event directly on the MediaStream object
-    localStream.onremovetrack = ({ track }) => {
-      // Remove the corresponding element from the DOM
-      console.log('Track removed:', track);
-      const index = VideoStreams.findIndex((stream) => stream.getTracks().includes(track));
-      const el = document.getElementById(`remoteVideo-${index}`);
-      if (el && el.parentNode) {
-        el.parentNode.removeChild(el);
-      }
-    };
-
     peerConnection.onicecandidate = (event) => {
       if (!event.candidate) {
         return;
