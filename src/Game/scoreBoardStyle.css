@@ -1,8 +1,7 @@
 .BoardStyle
 {
     position: absolute;
-    margin-top: -98vh;
-    margin-left: 10px;
+    margin: 10px;
     color: #000;
     display: flex;
     justify-content: center;
@@ -10,4 +9,8 @@
     height: 50px;
     display: flex;
     flex-direction: column;
+    background: green;
+    width: 125px;
+    height: 100px;
+    border-radius: 10px;
 }

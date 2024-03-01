@@ -11,7 +11,7 @@ import { userGameData } from './scoreBoard'
 const Game = ({ callBack }) => {
 
   // Create a raycaster
-  let gameLevel = 1;
+  let gameLevel = 2;
   let heartMaterial;
   const bulletArray = [];
   const mouse = new THREE.Vector2();
@@ -153,7 +153,7 @@ const Game = ({ callBack }) => {
     function addTreeAtFirstLevel(gltf) {
       const treeMode = gltf.scene;
       //add 7 trees
-      const max_tree = 7;
+      const max_tree = 20;
       const treeScaleFactor = 20;
       for (let i = 0; i < max_tree; i++) {
         const cloneTree = treeMode.clone();
@@ -333,7 +333,7 @@ const Game = ({ callBack }) => {
     }
     function addZigZagDeers() {
 
-      const maxDeer = 9;
+      const maxDeer = 60;
       for (let i = 0; i < maxDeer; i++) {
         addZigZagDeer(i);
       }
@@ -350,7 +350,7 @@ const Game = ({ callBack }) => {
 
       const model = __gltfDeer.scene;
 
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 50; i++) {
 
         const clonedDeerModel = SkeletonUtils.clone(model);
         clonedDeerModel.position.x = getRandomFloat(1, -10);

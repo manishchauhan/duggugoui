@@ -112,3 +112,27 @@ export function getCookie(cookieName) {
   // If the cookie is not found, return null or handle the absence accordingly
   return null;
 }
+
+export  function ConvertToHyperlink(text) {
+  // Regular expression to find URLs within text
+  var urlRegex = /(?:https?:\/\/)?([^\s]+\.[^\s]+)/g;
+
+  // Split text into parts
+  const parts = text.split(urlRegex);
+
+  // Map each part to JSX
+  return parts.map((part, index) => {
+    if (urlRegex.test(part)) {
+      // If part is a URL, return an anchor tag
+      const url = /^https?:\/\//i.test(part) ? part : 'https://' + part;
+      return (
+        <a href={url} key={index} target="_blank" rel="noopener noreferrer">
+          {part}
+        </a>
+      );
+    } else {
+      // If part is not a URL, return plain text
+      return <span key={index}>{part}</span>;
+    }
+  });
+}
