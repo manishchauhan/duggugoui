@@ -2,7 +2,7 @@ import React, { useState, useEffect  } from 'react';
 import EmojiPicker, { EmojiStyle, SuggestionMode } from 'emoji-picker-react'; // Update your import
 import '../App.css';
 import './ChatClient.css';
-import { fetchData} from '../Util/http';
+import { fetchData,ConvertToHyperlink} from '../Util/http';
 
 import {  useNavigate } from 'react-router-dom';
 import Rooms from '../Components/Rooms';
@@ -62,7 +62,10 @@ export default function ChatClient() {
   const [Candidate,setCandidate] = useState(null);
   const navigate = useNavigate();
   const [webRTCPeerID,setWebRTCPeerID]=useState()
-
+  const [cacheArray,setCacheArray]=useState([])
+  useEffect(()=>{
+    setMsgPool([...cacheArray,...msgPool])
+  },[cacheArray,setCacheArray])
   //initializeWebSocketConnection
   async function getChatLobby() {
     //1
@@ -71,6 +74,7 @@ export default function ChatClient() {
       const responseData = await fetchData('http://localhost:8080/user/home/chat');
       setUserName(responseData.User.username);
       setUserId(responseData.User.userid);
+      
     } catch (error) {
       setInternalError('Something went wrong ' + error.message);
     }
@@ -80,22 +84,34 @@ export default function ChatClient() {
   {
     if(socket)
     {
+      setCacheArray([])
       setMsgPool([]); //empty all messages
       setMsgObject({content:''});//remove all message
     }
 
   }
-  function loadInitData(__roomData) {
+  async function loadInitData(__roomData) {
     CleanOldData();
-    const chatroomid=__roomData.chatroom_id;
-
-    if(roomMap.has(chatroomid) && roomMap.get(chatroomid).length > 0) {
-        const oldMessage = roomMap.get(chatroomid);
-       setMsgPool([...oldMessage]);
+    const chatroomid = __roomData.chatroom_id;
+    try {
+        const responseCache = await fetchData(`http://localhost:8080/chatrooms/cache?roomID=${chatroomid}`);
+        const msgArray=[];
+        for (let i = responseCache.length-1; i >=0; --i) {
+           const chatMsgObject=JSON.parse(responseCache[i].Values.data)
+           chatMsgObject.time=responseCache[i].Values.time;
+           chatMsgObject.user=responseCache[i].Values.time;
+            msgArray.push(chatMsgObject)
+        }
+        setCacheArray([...msgArray]);
+    } catch (error) {
+        setInternalError('Something went wrong: ' + error.message);
     }
-
-
-  }
+   
+    if (roomMap.has(chatroomid) && roomMap.get(chatroomid).length > 0) {
+        const oldMessage = roomMap.get(chatroomid);
+        setMsgPool([...oldMessage]);
+    }
+}
   function updateUserList(chatMsgObject) {
     const userObject = { name: chatMsgObject.user, status: "online" };
   
@@ -228,6 +244,7 @@ export default function ChatClient() {
       const WebsocketMessage={messagetype:__messagetype,user:username,roomid:roomid,connectionid:ConnectionID,data:JSON.stringify(newMsgObject)}
       socket.send(JSON.stringify(WebsocketMessage)); // Sending the message as a JSON string
       setMsgObject({ ...msgObject, content: '' }); // Clear the message text
+
       if(__roomData)
       {
         isConnectionAlreadyExistsInMap.set(__roomData.chatroom_id,"YES")//
@@ -315,7 +332,7 @@ export default function ChatClient() {
         {msgPool.map((msgObject, index) => (
           <div key={index} className="chat-message">
             <span className="sender">{msgObject.user}</span>
-            <div className="message">{msgObject.content}</div>
+            <div className="message">{ConvertToHyperlink(msgObject.content)}</div>
             <div className="timestamp">{msgObject.time}</div>
           </div>
         ))}
